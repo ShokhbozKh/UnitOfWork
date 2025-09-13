@@ -9,50 +9,58 @@ namespace UnitOfWork.Unit_Of_Work;
 public class UnitOfWorks : IUnitOfWorks
 {
     private readonly AppDbContext _context; // bu DbContext ni saqlash uchun
-    private IDbContextTransaction? _transaction; // bu tranzaktsiyalarni boshqarish uchun
+
     public UnitOfWorks(AppDbContext context)
     {
         _context = context;
     }
-    public virtual IGenericRepository<TEntity> Repository<TEntity>() where TEntity : class // har qanday entity uchun repository olish uchun
-    {
-        return new GenericRepository<TEntity>(_context); // yangi GenericRepository yaratish va unga _context ni uzatish
-    }
-    public async Task<int> CommitAsync()
-    {
-        var result =  await _context.SaveChangesAsync(); // o'zgarishlarni saqlash uchun
 
-        if(_transaction != null) // agar tranzaktsiya mavjud bo'lsa
-        {
-            await _transaction.CommitAsync(); // tranzaktsiyani yakunlash
-            await _transaction.DisposeAsync(); // tranzaktsiyani ozod qilish
-            _transaction = null; // tranzaktsiyani null qilish
-        }
-        return result;
-    }
-
-    public void Dispose()
+    public IGenericRepository<TEntity> Repository<TEntity>() where TEntity : class
     {
-        _context.Dispose(); // bu resurslarni ozod qilish uchun
-        _transaction?.Dispose(); // agar tranzaktsiya mavjud bo'lsa, uni ozod qilish
+        return new GenericRepository<TEntity>(_context);
     }
 
     public async Task BeginTransactionAsync()
     {
-        if (_transaction == null) // agar tranzaktsiya mavjud bo'lmasa
+        if (_context.Database.CurrentTransaction == null)
+            await _context.Database.BeginTransactionAsync();
+    }
+
+    public async Task CommitAsync()
+    {
+        try
         {
-            _transaction = await _context.Database.BeginTransactionAsync(); // yangi tranzaktsiya boshlash
+            await _context.SaveChangesAsync(); // bu o'zgarishlarni saqlash uchun
+            await _context.Database.CommitTransactionAsync(); // bu tranzaktsiyani yakunlash uchun
+        }
+        catch (Exception)
+        {
+            await _context.Database.RollbackTransactionAsync(); // bu tranzaktsiyani bekor qilish uchun
+            throw; // xatoni tashlash
         }
 
     }
-
-    public async Task RollbackAsync()
+    public async Task RollbackTransactionAsync()
     {
-        if(_transaction != null) // agar tranzaktsiya mavjud bo'lsa
+        // joriy tranzaktsiyani olish
+        var transaction = _context.Database.CurrentTransaction;
+
+        if (transaction != null)
         {
-            await _transaction.RollbackAsync(); // tranzaktsiyani bekor qilish
-            await _transaction.DisposeAsync(); // tranzaktsiyani ozod qilish
-            _transaction = null; // tranzaktsiyani null qilish
+            try
+            {
+                await transaction.RollbackAsync();
+                // Transactionni bekor qilish
+            }
+            finally
+            {
+                await transaction.DisposeAsync(); // Transactionni yopish
+                _context.ChangeTracker.Clear(); // Memorydagi o'zgarishlarni tozalash
+            }
         }
+    }
+    public void Dispose()
+    {
+        _context.Dispose(); // bu dbu kontekstni tozalash uchun
     }
 }

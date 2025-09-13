@@ -1,19 +1,19 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using UnitOfWork.Data;
 using UnitOfWork.Repositories.Interfaces;
+using UnitOfWork.Unit_Of_Work;
 
 namespace UnitOfWork.Repositories.Implementations;
 
 public class GenericRepository<T> : IGenericRepository<T> where T : class
 {
     private readonly AppDbContext _context;
-    private readonly DbSet<T> _dbSet;
+    private readonly DbSet<T> _dbSet; // bu DbSet orqali ma'lumotlar bazasi bilan ishlaymiz aynan bitta jadval bilan
     public GenericRepository(AppDbContext context)
     {
         _context = context;
-        _dbSet = _context.Set<T>(); // bu DbSetni olish uchun
+        _dbSet = _context.Set<T>(); // bu DbSetni olish uchun .// Set<T>() metodi orqali
     }
-
 
     public async Task<List<T>> GetAllAsync()
     {
@@ -30,11 +30,11 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class
     {
         await _dbSet.AddAsync(entity); // bu yangi ma'lumot qo'shish uchun
     }
-    public async Task Update(T entity)
+    public  void Update(T entity)
     {
          _dbSet.Update(entity);
     }
-    public async Task Delete(T entity)
+    public void Delete(T entity)
     {
         _dbSet.Remove(entity);
     }

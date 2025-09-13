@@ -1,69 +1,125 @@
-﻿using UnitOfWork.Models;
+﻿using Microsoft.EntityFrameworkCore;
+using UnitOfWork.Data;
+using UnitOfWork.Models;
+using UnitOfWork.Repositories.Implementations;
 using UnitOfWork.Services.Users.Dtos;
 using UnitOfWork.Unit_Of_Work;
 
 namespace UnitOfWork.Services.Users;
 
-public class UserService : IUserService
+public class UserService : GenericRepository<User>, IUserService 
 {
-    private readonly IUnitOfWorks _unitOfWork;
-    public UserService(IUnitOfWorks unitOfWork)
-    {
-        _unitOfWork = unitOfWork;
-    }
-    public async Task<List<UserReadDto>> GetAllUsersAsync()
-    {
-        var users = await _unitOfWork.Repository<User>().GetAllAsync();
+    protected readonly IUnitOfWorks _unitOfWorks;
 
-        var userDtos = users.Select(u => new UserReadDto
+    public UserService(AppDbContext context, IUnitOfWorks unitOfWorks) 
+        : base(context)
+    {
+        _unitOfWorks = unitOfWorks;
+    }
+    public async Task<List<UserReadDto>> GetAllAsync()
+    {
+        // bu dbdan ma'lumotlarni olib UserReadDto ga map qilish uchun
+        var result = await _unitOfWorks.Repository<User>().GetAllAsync();
+
+        var userDtos = result.Select(user => new UserReadDto
         {
-            Id = u.Id,
-            Name = u.FullName,
+            Id = user.Id,
+            FullName = user.Name,
+            Email = user.Email,
+            Orders = user.Orders
 
         }).ToList();
         return userDtos;
     }
 
-    public async Task<UserReadDto?> GetUserByIdAsync(int id)
+    public async Task<UserReadDto> GetByIdAsync(int id)
     {
-        var user = await _unitOfWork.Repository<User>().GetByIdAsync(id);
-
+        var user = await _unitOfWorks.Repository<User>().GetByIdAsync(id);
         if (user == null) return null;
-
         var userDto = new UserReadDto
         {
             Id = user.Id,
-            Name = user.FullName,
+            FullName = user.Name,
+            Email = user.Email,
+            Orders = user.Orders
         };
         return userDto;
     }
-    public async Task<int> AddUserAsync(UserCreateDto user)
+    public async Task<int> UserCountAsync()
     {
-        var newUser = new User
+        var countUser = await _unitOfWorks.Repository<User>().GetAllAsync();
+        return countUser.Count();
+    }
+    public async Task<int> AddAsync(UserCreateDto userDto)
+    {
+        await _unitOfWorks.BeginTransactionAsync();
+
+        try
         {
-            FullName = user.FullName,
-        };
-        await _unitOfWork.Repository<User>().AddAsync(newUser);
-        await _unitOfWork.CommitAsync(); // o'zgarishlarni saqlash
-        return newUser.Id;
+            var user = new User
+            {
+                Name = userDto.FullName,
+                Email = userDto.Email,
+            };
+
+            await _unitOfWorks.Repository<User>().AddAsync(user);
+            // bu yerda boshqa bir nechta operatsiyalar bo'lishi mumkin
+            // masalan, boshqa jadvallarga ma'lumot qo'shish yoki yangilash
+            // agar hamma narsa muvaffaqiyatli bo'lsa, tranzaktsiyani yakunlaymiz
+            // lekin bu yerda faqat bitta operatsiya bor
+            await _unitOfWorks.CommitAsync();
+            
+
+            return user.Id;
+
+        }
+        catch (Exception)
+        {
+            await _unitOfWorks.RollbackTransactionAsync();
+        }
+        // agar xatolik yuz bersa, tranzaktsiyani bekor qilamiz va 0 qaytaramiz
+        return 0;
 
     }
-    public async Task UpdateUserAsync(int id, UserUpdateDto updateUser)
+    public async Task UpdateAsync(int id, UserUpdateDto userDto)
     {
-        var existingUser = await _unitOfWork.Repository<User>().GetByIdAsync(id);
-        if (existingUser == null) return;
+        await _unitOfWorks.BeginTransactionAsync();
 
-        existingUser.FullName = updateUser.FullName ?? existingUser.FullName;
-        existingUser.FullName = updateUser.FullName ?? existingUser.FullName;
+        try
+        {
+            var user = await _unitOfWorks.Repository<User>().GetByIdAsync(id);
+            if (user == null) return;
 
-        await _unitOfWork.Repository<User>().Update(existingUser);
-        await _unitOfWork.CommitAsync(); // o'zgarishlarni saqlash
+
+            user.Name = userDto.FullName ?? user.Name;
+            user.Email = userDto.Email ?? user.Email;
+
+            _unitOfWorks.Repository<User>().Update(user);
+            await _unitOfWorks.CommitAsync();
+
+        }
+        catch (Exception)
+        {
+            await _unitOfWorks.RollbackTransactionAsync();
+        }
+        
     }
-    public async Task DeleteUserAsync(int id)
+    public async Task DeleteAsync(int id)
     {
-        var existingUser = await _unitOfWork.Repository<User>().GetByIdAsync(id);
-        if (existingUser == null) return;
-        await _unitOfWork.Repository<User>().Delete(existingUser);
-        await _unitOfWork.CommitAsync(); // o'zgarishlarni saqlash
+        await _unitOfWorks.BeginTransactionAsync();
+
+        try
+        {
+            var user = await _unitOfWorks.Repository<User>().GetByIdAsync(id);
+            if (user == null) return;
+            _unitOfWorks.Repository<User>().Delete(user);
+            await _unitOfWorks.CommitAsync();
+
+        }
+        catch (Exception)
+        {
+            await _unitOfWorks.RollbackTransactionAsync();
+        } 
     }
+
 }

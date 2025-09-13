@@ -1,9 +1,12 @@
-﻿namespace UnitOfWork.Services.Users.Dtos
+﻿using UnitOfWork.Models;
+
+namespace UnitOfWork.Services.Users.Dtos
 {
     public class UserReadDto
     {
         public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
+        public string FullName { get; set; }
+        public string Email { get; set; }
+        public ICollection<Order> Orders { get; set; }= new List<Order>();
     }
 }

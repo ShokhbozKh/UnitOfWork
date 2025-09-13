@@ -1,4 +1,8 @@
 using UnitOfWork.Data;
+using UnitOfWork.Repositories.Implementations;
+using UnitOfWork.Repositories.Interfaces;
+using UnitOfWork.Services.Users;
+using UnitOfWork.Unit_Of_Work;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -6,7 +10,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddSqlServer<AppDbContext>(builder.Configuration.GetConnectionString("DefaultConnection"));
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+
+//builder.Services.AddScoped<IUnitOfWork, UnitOfWork.Unit_Of_Work.UnitOfWork>();
+
+builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+builder.Services.AddScoped<IUnitOfWorks, UnitOfWorks>();
+builder.Services.AddScoped<IUserService, UserService>();
+
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 

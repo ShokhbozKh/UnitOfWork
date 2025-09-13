@@ -21,7 +21,7 @@ namespace UnitOfWork.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAllAsync()
         {
-            var users = await _userService.GetAllUsersAsync();
+            var users = await _userService.GetAllAsync();
             _logger.LogInformation("GetAllAsync method called. Retrieved {Count} users.", users.Count);
             return Ok(users);
         }
@@ -29,7 +29,7 @@ namespace UnitOfWork.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetByIdAsync(int id)
         {
-            var user = await _userService.GetUserByIdAsync(id);
+            var user = await _userService.GetByIdAsync(id);
             if (user == null)
             {
                 _logger.LogWarning("User with ID {Id} not found.", id);
@@ -47,7 +47,7 @@ namespace UnitOfWork.Controllers
                 _logger.LogWarning("Invalid model state for CreateAsync.");
                 return BadRequest(ModelState);
             }
-            var userId = await _userService.AddUserAsync(user);
+            var userId = await _userService.AddAsync(user);
             _logger.LogInformation("User created successfully.");
 
             return Ok(userId);    
@@ -61,7 +61,7 @@ namespace UnitOfWork.Controllers
                 _logger.LogWarning("Invalid model state for UpdateAsync.");
                 return BadRequest(ModelState);
             }
-            await _userService.UpdateUserAsync(id, user);
+            await _userService.UpdateAsync(id, user);
             _logger.LogInformation("User with ID {Id} updated successfully.", id);
             return NoContent();
         }
@@ -69,7 +69,7 @@ namespace UnitOfWork.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteAsync(int id)
         {
-            await _userService.DeleteUserAsync(id);
+            await _userService.DeleteAsync(id);
             _logger.LogInformation("User with ID {Id} deleted successfully.", id);
             return NoContent();
         }
